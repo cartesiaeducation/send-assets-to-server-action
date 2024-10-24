@@ -84,8 +84,8 @@ runs:
     - name: Copy public/dist from container to host
       run: |
         PROJECT_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
-        docker cp web:/var/www/$PROJECT_NAME/public/dist ./public-dist-${{ inputs.git_ref }}
-        docker cp web:/var/www/$PROJECT_NAME/public/bundles ./public-bundles-${{ inputs.git_ref }}
+        docker cp web:/var/www/$PROJECT_NAME/public/dist ./dist
+        docker cp web:/var/www/$PROJECT_NAME/public/bundles ./bundles
       shell: bash
     
     - name: Setup SSH Keys
@@ -99,8 +99,8 @@ runs:
         REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
         ssh-keyscan -H ${{ inputs.ip_recette }} >> ~/.ssh/known_hosts
         rsync -avz --rsync-path="mkdir -p /var/www/$REPO_NAME/tmp/${{ inputs.git_ref }} && rsync" www-data@${{ inputs.ip_recette }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
-        rsync -avz --delete ./public-dist-${{ inputs.git_ref }} www-data@${{ inputs.ip_recette }}:/var/www/$REPO_NAME/tmp/public-dist-${{ inputs.git_ref }}
-        rsync -avz --delete ./public-bundles-${{ inputs.git_ref }} www-data@${{ inputs.ip_recette }}:/var/www/$REPO_NAME/tmp/public-bundles-${{ inputs.git_ref }}
+        rsync -avz --delete ./dist www-data@${{ inputs.ip_recette }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
+        rsync -avz --delete ./bundles www-data@${{ inputs.ip_recette }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
       shell: bash
     
     - name: Transfer artifact to the demo
@@ -109,8 +109,9 @@ runs:
         REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
         ssh-keyscan -H ${{ inputs.ip_demo }} >> ~/.ssh/known_hosts
         rsync -avz --rsync-path="mkdir -p /var/www/$REPO_NAME/tmp/${{ inputs.git_ref }} && rsync" www-data@${{ inputs.ip_demo }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
-        rsync -avz --delete ./public-dist-${{ inputs.git_ref }} www-data@${{ inputs.ip_demo }}:/var/www/$REPO_NAME/tmp/public-dist-${{ inputs.git_ref }}
-        rsync -avz --delete ./public-bundles-${{ inputs.git_ref }} www-data@${{ inputs.ip_demo }}:/var/www/$REPO_NAME/tmp/public-bundles-${{ inputs.git_ref }}
+        rsync -avz --delete ./dist www-data@${{ inputs.ip_demo }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
+        rsync -avz --delete ./bundles www-data@${{ inputs.ip_demo }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
+      
       shell: bash
     
     - name: Transfer artifact to the prod
@@ -119,8 +120,8 @@ runs:
         REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
         ssh-keyscan -H ${{ inputs.ip_prod }} >> ~/.ssh/known_hosts
         rsync -avz --rsync-path="mkdir -p /var/www/$REPO_NAME/tmp/${{ inputs.git_ref }} && rsync" www-data@${{ inputs.ip_prod }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
-        rsync -avz --delete ./public-dist-${{ inputs.git_ref }} www-data@${{ inputs.ip_prod }}:/var/www/$REPO_NAME/tmp/public-dist-${{ inputs.git_ref }}
-        rsync -avz --delete ./public-bundles-${{ inputs.git_ref }} www-data@${{ inputs.ip_prod }}:/var/www/$REPO_NAME/tmp/public-bundles-${{ inputs.git_ref }}
+        rsync -avz --delete ./dist www-data@${{ inputs.ip_prod }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
+        rsync -avz --delete ./bundles www-data@${{ inputs.ip_prod }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
       shell: bash
       
     - uses: slackapi/slack-github-action@v1.25.0
