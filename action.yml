@@ -63,6 +63,10 @@ runs:
       with:
         ref: ${{ inputs.git_ref }}
         
+    - name: Login to Docker
+      run: echo "${{ inputs.git_token }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+      shell: bash
+      
     - name: Mount project
       shell: bash
       run: |
