@@ -1,0 +1,140 @@
+name: 'Deploy Action'
+description: 'A reusable GitHub Action for executing tests.'
+inputs:
+  slack_bot_token:
+    description: 'Slack bot token'
+    required: true
+  slack_channel_id:
+    description: 'Slack notification channel ID'
+    required: true
+  ssh_private_key:
+    description: 'SSH private key'
+    required: true
+  git_organization:
+    description: 'Git organization'
+    required: true
+  git_token:
+    description: 'Git token'
+    required: true
+  git_ref:
+    description: 'Git reference'
+    required: true
+  ip_recette:
+    description: 'IP address for the recette environment'
+    required: false
+  ip_demo:
+    description: 'IP address for the demo environment'
+    required: false
+  ip_prod:
+    description: 'IP address for the prod environment'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - id: slack
+      uses: slackapi/slack-github-action@v1.25.0
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
+      with:
+        channel-id: ${{ inputs.slack_channel_id }}
+        payload: |
+          {
+            "text": "<https://github.com/${{ github.repository }}|${{ github.repository }}> : Build assets started in branch `${{ github.ref_name }}` (In Progress) - Build Link: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here for build details>",
+            "attachments": [
+              {
+                "pretext": "Build started",
+                "color": "dbab09",
+                "fields": [
+                  {
+                    "title": "Status",
+                    "short": true,
+                    "value": "In Progress"
+                  }
+                ]
+              }
+            ]
+          }
+
+    # —— Setup Github actions 🐙 ————————————————————————————————————————————————
+    # https://github.com/actions/checkout (official)
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.git_ref }}
+        
+    - name: Mount project
+      shell: bash
+      run: |
+        DEPENDENCIES_BRANCH=$(echo ${GITHUB_REF#refs/heads/}) \
+        SSH_PRIVATE_KEY="${{ inputs.ssh_private_key }}" \
+        CR_PAT="${{ inputs.git_token }}" \
+        GIT_ORGANIZATION="${{ inputs.git_organization }}" \
+        docker compose -f docker-compose-deploy.yml up -d
+        
+    - name: Build server assets
+      shell: bash
+      run: |
+        docker exec -u www-data web bash build-server-assets.sh
+    
+    - name: Copy public/dist from container to host
+      run: |
+        PROJECT_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+        docker cp web:/var/www/$PROJECT_NAME/public/dist ./public-dist-${{ inputs.git_ref }}
+      shell: bash
+    
+    - name: Setup SSH Keys
+      uses: webfactory/ssh-agent@v0.4.1
+      with:
+        ssh-private-key: ${{ inputs.ssh_private_key }}
+    #
+    - name: Transfer artifact to the recette
+      if: startsWith(github.ref, 'refs/heads/release-') && inputs.ip_recette
+      run: |
+        REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+        ssh-keyscan -H ${{ inputs.ip_recette }} >> ~/.ssh/known_hosts
+        rsync -avz --delete ./public-dist-${{ inputs.git_ref }} www-data@${{ inputs.ip_recette }}:/var/www/$REPO_NAME/tmp
+      shell: bash
+    
+    - name: Transfer artifact to the demo
+      if: github.ref == 'refs/heads/master' && inputs.ip_demo
+      run: |
+        REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+        ssh-keyscan -H ${{ inputs.ip_demo }} >> ~/.ssh/known_hosts
+        rsync -avz --delete ./public-dist-${{ inputs.git_ref }} www-data@${{ inputs.ip_demo }}:/var/www/$REPO_NAME/tmp
+      shell: bash
+    
+    - name: Transfer artifact to the prod
+      if: github.ref == 'refs/heads/master' && inputs.ip_prod
+      run: |
+        REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+        ssh-keyscan -H ${{ inputs.ip_prod }} >> ~/.ssh/known_hosts
+        rsync -avz --delete ./public-dist-${{ inputs.git_ref }} www-data@${{ inputs.ip_prod }}:/var/www/$REPO_NAME/tmp
+      shell: bash
+      
+    - uses: slackapi/slack-github-action@v1.25.0
+      if: always()
+      with:
+        # You can pass in multiple channels to post to by providing a comma-delimited list of channel IDs.
+        channel-id: ${{ inputs.slack_channel_id }}
+        # For posting a simple plain text message
+        update-ts: ${{ steps.slack.outputs.ts }}
+        payload: |
+          {
+            "text": "Repository: <https://github.com/${{ github.repository }}|${{ github.repository }}> - Build assets Status in branch `${{ github.ref_name }}`: ${{ steps.set_test_success_output.outputs.test_success }} - Build Link: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here for build details>",
+            "attachments": [
+              {
+                "pretext": "Build Status: ${{ steps.set_test_success_output.outputs.test_success }}",
+                "color": "${{ steps.set_test_success_output.outputs.test_success == 'success' && '28a745' || 'ff0000' }}",
+                "fields": [
+                  {
+                    "title": "Status",
+                    "short": true,
+                    "value": "${{ steps.set_test_success_output.outputs.test_success == 'success' && 'Completed' || 'Failure' }}"
+                  }
+                ]
+              }
+            ]
+          }
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
