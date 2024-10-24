@@ -62,7 +62,19 @@ runs:
       uses: actions/checkout@v4
       with:
         ref: ${{ inputs.git_ref }}
-
+        
+    - name: Login to Docker
+      run: echo "${{ inputs.git_token }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+      shell: bash
+      
+    - name: Mount project
+      shell: bash
+      run: |
+        DEPENDENCIES_BRANCH=$(echo ${GITHUB_REF#refs/heads/}) \
+        SSH_PRIVATE_KEY="${{ inputs.ssh_private_key }}" \
+        CR_PAT="${{ inputs.git_token }}" \
+        GIT_ORGANIZATION="${{ inputs.git_organization }}" \
+        docker compose -f docker-compose-deploy.yml up -d
         
     - name: Build server assets
       shell: bash
