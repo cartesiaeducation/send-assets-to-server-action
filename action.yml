@@ -92,7 +92,7 @@ runs:
     - name: Build server assets
       shell: bash
       run: |
-        bash build-server-assets.sh
+        bash ./build-server-assets.sh
     
     - name: Setup SSH Keys
       uses: webfactory/ssh-agent@v0.4.1
