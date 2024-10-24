@@ -126,28 +126,26 @@ runs:
       
     - uses: slackapi/slack-github-action@v1.25.0
       if: always()
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
       with:
-        # You can pass in multiple channels to post to by providing a comma-delimited list of channel IDs.
         channel-id: ${{ inputs.slack_channel_id }}
-        # For posting a simple plain text message
         update-ts: ${{ steps.slack.outputs.ts }}
         payload: |
           {
-            "text": "Repository: <https://github.com/${{ github.repository }}|${{ github.repository }}> - Build assets Status in branch `${{ github.ref_name }}`: ${{ steps.set_test_success_output.outputs.test_success }} - Build Link: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here for build details>",
+            "text": "Repository: <https://github.com/${{ github.repository }}|${{ github.repository }}> - Deployment Status in branch `${{ github.ref_name }}` in stage `${{ inputs.stage }}` with IP address `${{ inputs.ip }}`: ${{ steps.deploy.outcome }} - Build Link: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here for build details>",
             "attachments": [
               {
-                "pretext": "Build Status: ${{ steps.set_test_success_output.outputs.test_success }}",
-                "color": "${{ steps.set_test_success_output.outputs.test_success == 'success' && '28a745' || 'ff0000' }}",
+                "pretext": "Deployment Status: ${{ steps.deploy.outcome }}",
+                "color": "${{ steps.deploy.outcome == 'success' && '28a745' || 'ff0000' }}",
                 "fields": [
                   {
                     "title": "Status",
                     "short": true,
-                    "value": "${{ steps.set_test_success_output.outputs.test_success == 'success' && 'Completed' || 'Failure' }}"
+                    "value": "${{ steps.deploy.outcome == 'success' && 'Completed' || 'Failure' }}"
                   }
                 ]
               }
             ]
           }
-      env:
-        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
         
