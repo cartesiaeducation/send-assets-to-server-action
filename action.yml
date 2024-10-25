@@ -94,6 +94,7 @@ runs:
         ssh-private-key: ${{ inputs.ssh_private_key }}
     #
     - name: Transfer artifact to the recette
+      id: transfer_artifact_to_recette
       if: startsWith(github.ref, 'refs/heads/release-') && inputs.ip_recette
       run: |
         REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
@@ -104,6 +105,7 @@ runs:
       shell: bash
     
     - name: Transfer artifact to the demo
+      id: transfer_artifact_to_demo
       if: github.ref == 'refs/heads/master' && inputs.ip_demo
       run: |
         REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
@@ -115,6 +117,7 @@ runs:
       shell: bash
     
     - name: Transfer artifact to the prod
+      id: transfer_artifact_to_prod
       if: github.ref == 'refs/heads/master' && inputs.ip_prod
       run: |
         REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
@@ -124,28 +127,41 @@ runs:
         rsync -avz --delete ./bundles www-data@${{ inputs.ip_prod }}:/var/www/$REPO_NAME/tmp/${{ inputs.git_ref }}
       shell: bash
       
+    - name: Set success output
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev'
+      id: set_success_output
+      run: |
+        if [[ "${{ inputs.behat }}" == "false" || "${{ steps.behat.outcome }}" == "success" ]] &&
+           [[ "${{ inputs.phpunit }}" == "false" || "${{ steps.phpunit.outcome }}" == "success" ]] &&
+           [[ "${{ inputs.jest }}" == "false" || "${{ steps.jest.outcome }}" == "success" ]]
+        then
+          echo "::set-output name=test_success::success"
+        else
+          echo "::set-output name=test_success::failure"
+        fi
+      shell: bash
+      
     - uses: slackapi/slack-github-action@v1.25.0
-      if: always()
-      env:
-        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
+      if: always() # Assurez-vous que cette action s'exécute toujours, même si une étape précédente échoue.
       with:
         channel-id: ${{ inputs.slack_channel_id }}
-        update-ts: ${{ steps.slack.outputs.ts }}
         payload: |
           {
-            "text": "Repository: <https://github.com/${{ github.repository }}|${{ github.repository }}> - Deployment Status in branch `${{ github.ref_name }}` in stage `${{ inputs.stage }}` with IP address `${{ inputs.ip }}`: ${{ steps.deploy.outcome }} - Build Link: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here for build details>",
+            "text": "Repository: <https://github.com/${{ github.repository }}|${{ github.repository }}> - Build assets status on branch `${{ github.ref_name }}`: ${{ job.status }} - Build Link: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here for build details>",
             "attachments": [
               {
-                "pretext": "Deployment Status: ${{ steps.deploy.outcome }}",
-                "color": "${{ steps.deploy.outcome == 'success' && '28a745' || 'ff0000' }}",
+                "pretext": "Build Status: ${{ job.status }}",
+                "color": "${{ job.status == 'success' && '28a745' || 'ff0000' }}",
                 "fields": [
                   {
                     "title": "Status",
                     "short": true,
-                    "value": "${{ steps.deploy.outcome == 'success' && 'Completed' || 'Failure' }}"
+                    "value": "${{ job.status == 'success' && 'Completed' || 'Failure' }}"
                   }
                 ]
               }
             ]
           }
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
         
