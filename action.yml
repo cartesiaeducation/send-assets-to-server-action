@@ -147,16 +147,16 @@ runs:
         channel-id: ${{ inputs.slack_channel_id }}
         payload: |
           {
-            "text": "Repository: <https://github.com/${{ github.repository }}|${{ github.repository }}> - Build assets status on branch `${{ github.ref_name }}`: ${{ job.status }} - Build Link: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here for build details>",
+            "text": "Repository: <https://github.com/${{ github.repository }}|${{ github.repository }}> - Build assets status on branch `${{ github.ref_name }}`: ${{ steps.set_success_output.outputs.test_success }} - Build Link: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|Click here for build details>",
             "attachments": [
               {
-                "pretext": "Build Status: ${{ job.status }}",
-                "color": "${{ job.status == 'success' && '28a745' || 'ff0000' }}",
+                "pretext": "Build Status: ${{ steps.set_success_output.outputs.test_success }}",
+                "color": "${{ steps.set_success_output.outputs.test_success == 'success' && '28a745' || 'ff0000' }}",
                 "fields": [
                   {
                     "title": "Status",
                     "short": true,
-                    "value": "${{ job.status == 'success' && 'Completed' || 'Failure' }}"
+                    "value": "${{ steps.set_success_output.outputs.test_success == 'success' && 'Completed' || 'Failure' }}"
                   }
                 ]
               }
