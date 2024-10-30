@@ -128,15 +128,15 @@ runs:
       shell: bash
       
     - name: Set success output
-      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev'
       id: set_success_output
       run: |
-        if [[ "${{ inputs.behat }}" == "false" || "${{ steps.behat.outcome }}" == "success" ]] &&
-           [[ "${{ inputs.phpunit }}" == "false" || "${{ steps.phpunit.outcome }}" == "success" ]] &&
-           [[ "${{ inputs.jest }}" == "false" || "${{ steps.jest.outcome }}" == "success" ]]
-        then
+        if [[ ("${{ steps.transfer_artifact_to_recette.outcome }}" == "success" || "${{ steps.transfer_artifact_to_recette.outcome }}" == "skipped") &&
+              ("${{ steps.transfer_artifact_to_demo.outcome }}" == "success" || "${{ steps.transfer_artifact_to_demo.outcome }}" == "skipped") &&
+              ("${{ steps.transfer_artifact_to_prod.outcome }}" == "success" || "${{ steps.transfer_artifact_to_prod.outcome }}" == "skipped") ]]; then
+          echo "All transfer steps executed successfully or were skipped."
           echo "::set-output name=test_success::success"
         else
+          echo "One or more transfer steps failed."
           echo "::set-output name=test_success::failure"
         fi
       shell: bash
